@@ -8,6 +8,7 @@ python-dotenv>=1.0.0
 ultralytics>=8.1.0
 opencv-python>=4.9.0.80
 Pillow>=10.3.0
+mediapipe>=0.10.0
 
 # Audio
 openai-whisper>=20231117
@@ -24,8 +25,14 @@ openai>=1.12.0
 reportlab>=4.1.0
 
 # ML
-torch>=2.2.0
-torchvision>=0.17.0
 numpy>=1.26.4
 pandas>=2.2.0
+scikit-learn>=1.4.0
+pyyaml>=6.0.1
 
+# Datasets
+kagglehub>=0.3.0
+
+# Notebook
+jupyter>=1.0.0
+ipykernel>=6.29.0
