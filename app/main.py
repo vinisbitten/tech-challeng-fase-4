@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+from app.video.router import router as video_router
 import shutil
 import os
 import uuid
@@ -9,7 +10,7 @@ load_dotenv()
 
 app = FastAPI(
     title="FemHealth Multimodal AI",
-    description="Sistema de análise multimodal para saúde da mulher",
+    description="Sistema de analise multimodal para saude da mulher",
     version="1.0.0"
 )
 
@@ -20,13 +21,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(video_router)
+
 UPLOAD_DIR = "data/samples"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 @app.get("/")
 def root():
-    return {"status": "ok", "message": "FemHealth Multimodal AI está rodando!"}
+    return {"status": "ok", "message": "FemHealth Multimodal AI esta rodando!"}
 
 
 @app.get("/health")
@@ -37,7 +40,7 @@ def health():
 @app.post("/analyze/video")
 async def analyze_video(file: UploadFile = File(...)):
     if not file.filename.endswith((".mp4", ".avi", ".mov", ".mkv")):
-        raise HTTPException(status_code=400, detail="Formato de vídeo inválido.")
+        raise HTTPException(status_code=400, detail="Formato de video invalido.")
 
     file_path = f"{UPLOAD_DIR}/{uuid.uuid4()}_{file.filename}"
     with open(file_path, "wb") as buffer:
@@ -62,7 +65,7 @@ async def analyze_video(file: UploadFile = File(...)):
 @app.post("/analyze/audio")
 async def analyze_audio(file: UploadFile = File(...)):
     if not file.filename.endswith((".mp3", ".wav", ".m4a", ".ogg")):
-        raise HTTPException(status_code=400, detail="Formato de áudio inválido.")
+        raise HTTPException(status_code=400, detail="Formato de audio invalido.")
 
     file_path = f"{UPLOAD_DIR}/{uuid.uuid4()}_{file.filename}"
     with open(file_path, "wb") as buffer:
@@ -87,9 +90,9 @@ async def analyze_audio(file: UploadFile = File(...)):
 async def analyze_text(payload: dict):
     text = payload.get("text", "")
     if not text:
-        raise HTTPException(status_code=400, detail="Texto não informado.")
+        raise HTTPException(status_code=400, detail="Texto nao informado.")
 
-    from app.text.analyzer import TextAnalyzer
+    from app.text.analizer import TextAnalyzer
     analyzer = TextAnalyzer()
     return analyzer.analyze(text)
 
@@ -122,10 +125,10 @@ async def analyze_multimodal(
         os.remove(audio_path)
 
     if text:
-        from app.text.analyzer import TextAnalyzer
+        from app.text.analizer import TextAnalyzer
         results["text"] = TextAnalyzer().analyze(text)
 
     from app.fusion.alert import FusionAnalyzer
     results["fusion"] = FusionAnalyzer().fuse(results)
 
-    return
+    return results
