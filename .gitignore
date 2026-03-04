@@ -1,0 +1,5 @@
+﻿__pycache__/
+.env
+*.pt
+*.mp4
+*.pyc
