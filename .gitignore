@@ -6,5 +6,5 @@
 *.mp3
 *.pyc
 venv/
-data/samples/*
+data/*/*
 !data/samples/.gitkeep
