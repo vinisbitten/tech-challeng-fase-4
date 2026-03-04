@@ -2,4 +2,9 @@
 .env
 *.pt
 *.mp4
+*.wav
+*.mp3
 *.pyc
+venv/
+data/samples/*
+!data/samples/.gitkeep
