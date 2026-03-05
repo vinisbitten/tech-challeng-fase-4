@@ -1,23 +1,31 @@
 # 🏥 FemHealth — Roteiro de Apresentação
 ### Tech Challenge Fase 4 · POSTECH IADT · FIAP · Março/2026
 
+
 ---
 
+
 ## 1. O Desafio
+
 
 A rede hospitalar FemHealth precisa monitorar pacientes continuamente por meio de
 **dados multimodais — áudio, vídeo e texto** — para identificar sinais precoces de
 risco específicos da saúde e segurança feminina.
 
+
 Nossa solução cobre **três dos objetivos obrigatórios**:
+
 
 - ✅ Detectar precocemente riscos em saúde materna e ginecológica
 - ✅ Identificar sinais de violência doméstica ou abuso
 - ✅ Monitorar bem-estar psicológico feminino
 
+
 ---
 
+
 ## 2. Visão Geral da Solução
+
 
 ```mermaid
 mindmap
@@ -28,19 +36,24 @@ mindmap
       Fisioterapia\nClassificação de movimentos
       Consulta\nDetecção de dor facial
     Áudio
-      Transcrição de consultas
-      Detecção de padrões vocais de risco
+      Transcrição Whisper
+      Análise de emoção por keywords + GPT-4o-mini
     API
       FastAPI REST
-      POST /predict por contexto
+      POST /analyze com contexto enum
+      Relatório PDF automático
 ```
+
 
 ---
 
+
 ## 3. Requisito 1 — Análise de Vídeo Especializada
+
 
 O documento exige processamento de vídeos clínicos em 4 contextos.
 Implementamos todos com **YOLOv8 customizado**:
+
 
 ```mermaid
 flowchart LR
@@ -57,12 +70,16 @@ flowchart LR
     P --> OUT
 ```
 
+
 ### 3.1 Modelo Especializado — Instrumentos Cirúrgicos Ginecológicos
+
 
 Atende diretamente ao requisito:
 > *"YOLOv8 customizado para detecção de instrumentos cirúrgicos ginecológicos"*
 
+
 Dataset: **Laparoscopia Roboflow** · 1081 imagens · 7 classes
+
 
 ```mermaid
 xychart-beta
@@ -72,15 +89,20 @@ xychart-beta
     bar [0.995, 0.893, 0.851, 0.795, 0.755, 0.494, 0.317]
 ```
 
+
 > ⚠️ `Allis` e `Suction` com mAP50 baixo por underrepresentation no val —
 > limitação do dataset, não do modelo.
 
+
 ### 3.2 Triagem de Violência — Linguagem Corporal
+
 
 Atende ao requisito:
 > *"Triagem de violência: detecção de linguagem corporal indicativa de abuso"*
 
+
 Dataset: **Aggressive Poses** · 103 imagens · 17 keypoints
+
 
 | Métrica | Box | Pose |
 |---------|-----|------|
@@ -89,14 +111,22 @@ Dataset: **Aggressive Poses** · 103 imagens · 17 keypoints
 | mAP50 | 0.995 | 0.995 |
 | mAP50-95 | 0.956 | 0.771 |
 
+
 > Recall perfeito — **nenhuma pose de risco deixa de ser detectada.**
+>
+> Alerta via `_check_protective_pose()`: ombros encolhidos e pulsos cruzados.
+> Fallback: qualquer pessoa detectada com confiança ≥ 70% dispara alerta CRÍTICO.
+
 
 ### 3.3 Fisioterapia Pós-parto — Análise de Movimentos
+
 
 Atende ao requisito:
 > *"Fisioterapia: análise de movimentos e recuperação"*
 
-Dataset: **678 vídeos → 3019 frames** · 6 classes (Arm Raise, Knee Extension, Sit To Stand · correto/incorreto)
+
+Dataset: **678 vídeos → 3120 frames** · 6 classes (Arm Raise, Knee Extension, Sit To Stand · correto/incorreto)
+
 
 | Métrica | Valor |
 |---------|-------|
@@ -104,39 +134,58 @@ Dataset: **678 vídeos → 3019 frames** · 6 classes (Arm Raise, Knee Extension
 | Top-5 Accuracy | 1.000 |
 | Inferência | 0.9ms/img |
 
+
+Classes de alerta: `Arm_Raise_Incorrect`, `Knee_Extension_Incorrect`, `Sit_To_Stand_Incorrect`
+
+
 ### 3.4 Consulta — Sinais Não-verbais de Desconforto
+
 
 Atende ao requisito:
 > *"Consultas: identificação de sinais não-verbais de desconforto ou medo"*
 
-Dataset: **UNBC-McMaster Pain (FACS)** · 4000 imagens balanceadas · 2 classes
+
+Dataset: **UNBC-McMaster Pain (FACS)** · 4000 imagens balanceadas · 2 classes (`comdor` / `semdor`)
+
 
 | Métrica | Valor |
 |---------|-------|
 | Top-1 Accuracy | **0.933** |
 | Top-5 Accuracy | 1.000 |
 
+
 ---
 
+
 ## 4. Requisito 2 — Análise de Áudio
+
 
 Atende ao requisito:
 > *"Processar gravações de voz de pacientes em consultas"*
 
+
 ```mermaid
 flowchart LR
-    A[🎙️ Áudio da Consulta] --> B[Transcrição\nWhisper / Azure Speech]
-    B --> C[Análise de Padrões\nVocais de Risco]
+    A[🎙️ Áudio da Consulta] --> B[Transcrição\nWhisper base]
+    B --> C[Análise de Emoção\nKeywords + GPT-4o-mini]
     C --> D{Sinal Detectado?}
     D -- Sim --> E[⚠️ Alerta\nEquipe Médica]
     D -- Não --> F[✅ Consulta\nRegistrada]
 ```
 
-> Módulo `app/audio/transcriber.py` — integração em finalização.
+
+**Categorias de risco monitoradas:** `depressao`, `ansiedade`, `violencia`, `pos_parto`
+
+**Fallback sem OpenAI:** análise exclusiva por keywords — funciona offline.
+
+**Fallback sem áudio no vídeo:** retorna `warning` sem quebrar o pipeline.
+
 
 ---
 
+
 ## 5. Pipeline Técnico Completo
+
 
 ```mermaid
 flowchart TD
@@ -163,14 +212,50 @@ flowchart TD
     end
 
     TRAIN --> EVAL[Avaliação\nFinal]
-    EVAL --> MODELS[models/yolov8_custom/\n*.pt]
+    EVAL --> MODELS[models/\n*.pt]
     MODELS --> API[🚀 FastAPI\nuvicorn app.main:app]
-    API --> REPORT[📋 Relatório\nAutomático de Anomalias]
+    API --> FUSION[Fusão Multimodal\nalert.py]
+    FUSION --> REPORT[📋 Relatório PDF\nAutomático]
 ```
+
 
 ---
 
-## 6. Desafios Técnicos e Soluções
+
+## 6. Arquitetura da API
+
+
+```
+POST /analyze
+├── video: UploadFile
+└── context: Enum [cirurgia | consulta | fisioterapia | triagem]
+
+Response:
+├── transcription       ← Whisper (com fallback sem áudio)
+├── emotion             ← EmotionAnalyzer (keywords + LLM)
+├── detections[]        ← YOLOv8 frame-a-frame com timestamp
+├── detections_by_class ← contagem por classe
+├── alert               ← fusão visual + áudio + texto + pose
+└── report              ← path do PDF gerado
+```
+
+
+**Fusão de sinais no alerta:**
+
+
+| Sinal | Fonte | Peso |
+|-------|-------|------|
+| `visual` | YOLOv8 detecções | classes de risco por contexto |
+| `audio_emotion` | EmotionAnalyzer | risco ALTO ou CRÍTICO |
+| `text` | transcrição | keywords clínicos de risco |
+| `pose` | MediaPipe / fallback | postura protetiva detectada |
+
+
+---
+
+
+## 7. Desafios Técnicos e Soluções
+
 
 ```mermaid
 timeline
@@ -188,14 +273,29 @@ timeline
                : YOLOv8 salva em path absoluto
                : Fix - rglob + shutil.copy2
 
-    API        : ImportError transcribe_audio
-               : Função com nome diferente
-               : Fix - alias ou correção do import
+    API        : ImportError transcribe_audio / detect_emotion
+               : Funções com nomes diferentes das classes
+               : Fix - wrappers module-level com singleton lazy
+
+    MediaPipe  : mp.solutions removido na v0.10.30+
+               : AttributeError no import
+               : Fix - try/except + fallback por confiança YOLO
+
+    Vídeo      : Arquivo sem trilha de áudio
+               : ffmpeg retornava exit status non-zero
+               : Fix - ffprobe check antes do Whisper
+
+    Windows    : PermissionError ao deletar tmp
+               : cv2.VideoCapture mantinha lock
+               : Fix - cap.release() antes do finally
 ```
+
 
 ---
 
-## 7. Resultados Consolidados
+
+## 8. Resultados Consolidados
+
 
 ```mermaid
 xychart-beta
@@ -205,9 +305,12 @@ xychart-beta
     bar [0.995, 0.771, 0.729, 0.505, 0.994, 0.933]
 ```
 
+
 ---
 
-## 8. Entregáveis — Checklist
+
+## 9. Entregáveis — Checklist
+
 
 ```mermaid
 flowchart LR
@@ -226,25 +329,35 @@ flowchart LR
     end
 ```
 
+
 | Entregável | Status |
 |------------|--------|
 | Código-fonte completo | ✅ |
 | Análise de vídeo (4 contextos) | ✅ |
 | Modelos YOLOv8 customizados | ✅ |
-| Análise de áudio | 🔧 Em finalização |
-| FastAPI REST | 🔧 Em finalização |
-| Relatórios automáticos | 🔧 Em finalização |
+| FastAPI REST `/analyze` | ✅ |
+| Transcrição de áudio (Whisper) | ✅ |
+| Análise de emoção (keywords + LLM) | ✅ |
+| Sistema de alertas multimodal | ✅ |
+| Relatórios automáticos PDF | ✅ |
+| Azure Speech / Language | 🔧 Implementado, aguarda chaves |
 | Vídeo demonstração (YouTube/Vimeo) | ⏳ Pendente |
+
 
 ---
 
-## 9. Melhorias Futuras
+
+## 10. Melhorias Futuras
+
 
 - **Cirurgia:** Ampliar instâncias de `Allis` e `Suction` com data augmentation
 - **Triagem:** Adicionar `flip_idx` no `data.yaml` e ampliar dataset para 500+ imagens
-- **Áudio:** Integrar Azure Cognitive Services / Speech-to-Text para análise vocal em tempo real
+- **Áudio:** Ativar Azure Cognitive Services / Speech-to-Text para análise vocal em tempo real
 - **Deploy:** Exportar modelos para ONNX e containerizar com Docker
+- **MediaPipe:** Migrar para Tasks API (v0.10.30+) para análise de pose completa
+
 
 ---
+
 
 *Tech Challenge Fase 4 · POSTECH IADT · FIAP · Março/2026*
