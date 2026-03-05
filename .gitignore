@@ -10,6 +10,7 @@ venv312/
 runs/
 
 # Datasets e dados brutos
+notebooks/Laparoscopy-14
 notebooks/datasets/
 notebooks/data/
 data/
