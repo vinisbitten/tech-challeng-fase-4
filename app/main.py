@@ -8,6 +8,10 @@ import tempfile, cv2, os
 from datetime import datetime
 from collections import Counter
 from enum import Enum
+import os
+
+REPORTS_DIR = "data/reports"
+os.makedirs(REPORTS_DIR, exist_ok=True)
 
 app = FastAPI(title="Clinical Video Analysis API")
 
@@ -96,8 +100,12 @@ async def analyze(
     video_result["alerts"] = alerts_list
 
     # Gera PDF
-    report_path = os.path.join(tempfile.gettempdir(), f"report_{context.value}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf")
-
+    report_path = os.path.join(
+        REPORTS_DIR,
+        f"report_{context.value}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    )
+    generate_pdf_report(video_result, report_path)
+    
     return {
         "context": context,
         "transcription": transcription,
