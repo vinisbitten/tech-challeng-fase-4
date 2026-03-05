@@ -8,12 +8,12 @@
 venv/
 venv312/
 runs/
-notebooks/datasets
-notebooks/data
-notebooks/.ipynb_checkpoints/
 
-# Ignora tudo em data/ exceto a estrutura de pastas
-data/**
-!data/
-!data/**/
+# Datasets e dados brutos
+notebooks/datasets/
+notebooks/data/
+data/
+
+# Mantém estrutura de samples
+!data/samples/
 !data/samples/.gitkeep
