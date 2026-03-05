@@ -8,7 +8,8 @@
 venv/
 venv312/
 runs/
-notebooks/data/
+notebooks/datasets
+notebooks/data
 notebooks/.ipynb_checkpoints/
 
 # Ignora tudo em data/ exceto a estrutura de pastas
