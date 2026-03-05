@@ -1,11 +1,13 @@
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+
 
 class Alert(BaseModel):
     timestamp: float
     type: str
     severity: str
     confidence: float
+
 
 class VideoAnalysisResponse(BaseModel):
     video: str

@@ -1,27 +1,30 @@
-from typing import Optional
-
 ALERT_RULES = {
     "cirurgia": {
-        "classes": ["bleeding", "hemorrhage", "anomaly"],
+        "classes": ["Cautery", "Suction", "Allis"],
         "pose_check": False,
-        "severity": "CRITICO"
+        "severity": "CRITICO",
     },
     "consulta": {
-        "classes": ["discomfort", "fear", "pain"],
+        "classes": ["comdor"],
         "pose_check": True,
-        "severity": "ALTO"
+        "severity": "ALTO",
     },
     "fisioterapia": {
-        "classes": ["wrong_posture", "fall_risk"],
-        "pose_check": True,
-        "severity": "MEDIO"
+        "classes": [
+            "Arm_Raise_Incorrect",
+            "Knee_Extension_Incorrect",
+            "Sit_To_Stand_Incorrect",
+        ],
+        "pose_check": False,
+        "severity": "MEDIO",
     },
     "triagem": {
-        "classes": ["protective_gesture", "flinch", "covering"],
+        "classes": [],
         "pose_check": True,
-        "severity": "CRITICO"
-    }
+        "severity": "CRITICO",
+    },
 }
+
 
 def evaluate_alert(video_result: dict, audio_emotion: str, transcription: str) -> dict:
     context = video_result.get("context", "consulta")
@@ -30,53 +33,49 @@ def evaluate_alert(video_result: dict, audio_emotion: str, transcription: str) -
     pose = video_result.get("pose")
 
     detected_classes = [d["class"].lower() for d in detections]
-    visual_alert = any(cls in detected_classes for cls in rules["classes"])
+    visual_alert = any(cls.lower() in detected_classes for cls in rules["classes"])  # ← fix
 
-    # Sinais de alerta no áudio
-    audio_alert = audio_emotion in ["fear", "anger", "sadness", "disgust"]
+    audio_alert = str(audio_emotion).lower() in ["alto", "crítico", "critico", "fear", "anger", "sadness", "disgust"]
 
-    # Sinais no texto
     alert_keywords = ["dor", "para", "não quero", "medo", "socorro", "ajuda"]
     text_alert = any(kw in transcription.lower() for kw in alert_keywords)
 
-    # Pose suspeita (braços cruzados/encolhido) para triagem e consulta
     pose_alert = False
     if rules["pose_check"] and pose:
         pose_alert = _check_protective_pose(pose)
 
+    if context == "triagem" and not pose_alert:
+        yolo_detections = [d for d in detections if d.get("confidence", 0) >= 0.7]
+        pose_alert = len(yolo_detections) > 0
+
     triggered = visual_alert or (audio_alert and text_alert) or pose_alert
-    confidence = sum([visual_alert, audio_alert, text_alert, pose_alert]) / 4
+    confidence = round(sum([visual_alert, audio_alert, text_alert, pose_alert]) / 4, 2)
 
     return {
         "alert": triggered,
         "severity": rules["severity"] if triggered else "NORMAL",
-        "confidence": round(confidence, 2),
+        "confidence": confidence,
         "context": context,
         "signals": {
             "visual": visual_alert,
             "audio_emotion": audio_alert,
             "text": text_alert,
-            "pose": pose_alert
-        }
+            "pose": pose_alert,
+        },
     }
 
+
 def _check_protective_pose(landmarks: list) -> bool:
-    """Verifica postura protetiva: ombros elevados ou braços cruzados."""
     try:
-        # landmarks: [x, y, z, vis] — índices MediaPipe
-        left_shoulder  = landmarks[11]
+        left_shoulder = landmarks[11]
         right_shoulder = landmarks[12]
-        left_wrist     = landmarks[15]
-        right_wrist    = landmarks[16]
-        nose           = landmarks[0]
-
-        # Ombros encolhidos: y do ombro próximo ao nariz
+        left_wrist = landmarks[15]
+        right_wrist = landmarks[16]
+        nose = landmarks[0]
         shoulders_raised = abs(left_shoulder[1] - nose[1]) < 0.15
-
-        # Braços cruzados: pulsos invertidos em relação aos ombros
-        wrists_crossed = (left_wrist[0] > right_wrist[0] and
-                          left_shoulder[0] < right_shoulder[0])
-
+        wrists_crossed = (
+            left_wrist[0] > right_wrist[0] and left_shoulder[0] < right_shoulder[0]
+        )
         return shoulders_raised or wrists_crossed
     except Exception:
         return False

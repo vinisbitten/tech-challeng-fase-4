@@ -18,3 +18,7 @@ data/
 # Mantém estrutura de samples
 !data/samples/
 !data/samples/.gitkeep
+
+# Modelos treinados
+!models/*.pt
+

@@ -9,6 +9,8 @@ RISK_KEYWORDS = {
     "pos_parto": ["nao consigo cuidar", "nao sinto amor", "arrependida", "exausta", "nao durmo"],
 }
 
+_default_analyzer = None
+
 
 class EmotionAnalyzer:
     def __init__(self):
@@ -18,11 +20,9 @@ class EmotionAnalyzer:
     def analyze(self, audio_path: str, transcription_text: str) -> dict:
         keyword_flags = self._detect_keywords(transcription_text)
         risk_level = self._assess_risk(keyword_flags)
-
         llm_analysis = None
         if self.client:
             llm_analysis = self._analyze_with_llm(transcription_text)
-
         return {
             "emotion_analysis": {
                 "analyzed_at": datetime.now().isoformat(),
@@ -63,9 +63,9 @@ class EmotionAnalyzer:
                             "Analise o texto da consulta e identifique sinais de risco psicológico, "
                             "depressão pós-parto, ansiedade ou violência doméstica. "
                             "Seja objetivo e clínico. Responda em português."
-                        )
+                        ),
                     },
-                    {"role": "user", "content": f"Analise este texto de consulta:\n\n{text}"}
+                    {"role": "user", "content": f"Analise este texto de consulta:\n\n{text}"},
                 ],
                 max_tokens=500,
             )
@@ -84,3 +84,10 @@ class EmotionAnalyzer:
         if not recs:
             recs.append("Nenhuma ação imediata necessária. Manter acompanhamento de rotina.")
         return recs
+
+
+def detect_emotion(audio_path: str, transcription_text: str) -> dict:
+    global _default_analyzer
+    if _default_analyzer is None:
+        _default_analyzer = EmotionAnalyzer()
+    return _default_analyzer.analyze(audio_path, transcription_text)
